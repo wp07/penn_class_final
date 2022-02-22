@@ -1,0 +1,1257 @@
+---
+title: "TAAD Penn Class Analysis"
+author: "WLP + SY"
+date: "2/19/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE, error =FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(readxl)
+library(tidyverse)
+library(tableone)
+library(boot)
+library(dplyr)
+library(patchwork)
+library(caret)
+library(ggplot2)
+library(ggpubr)
+
+# library(leaps)
+# library(readxl)
+# library(writexl)
+# library(rstatix)
+# library(MASS)
+# library(lmtest)
+# library(broom)
+# library(rms)
+# library(ROCR)
+# library(DescTools)
+# library(rmarkdown)
+# library(scoring)
+# library(RColorBrewer)
+# library(reshape2)
+
+setwd("~/Desktop/Sid R Project")
+data <- read_excel("TAAD_finaldata.xlsx")
+df <- as_tibble(data)
+
+df$Sex <- as.factor(df$Sex)
+df$RACE_ID <- as.factor(df$RACE_ID)
+df$Race <- as.factor(df$Race)
+df$Current_Smoker<- as.factor(df$Current_Smoker)
+df$Diabetes <- as.factor(df$Diabetes)
+df$Renal_Failure <- as.factor(df$Renal_Failure)
+df$COPD <- as.factor(df$COPD)
+df$BAV <- as.factor(df$BAV)
+df$CAD <- as.factor(df$CAD)
+df$Previous_Cardiac_Surgery <- as.factor(df$Previous_Cardiac_Surgery)
+df$Previous_CVA <- as.factor(df$Previous_CVA)
+df$Previous_AVR <- as.factor(df$Previous_AVR)
+df$Dialysis <- as.factor(df$Dialysis)
+df$Penn_Class <- as.factor(df$Penn_Class)
+df$Hypotension_Shock <- as.factor(df$Hypotension_Shock)
+df$Tamponade <- as.factor(df$Tamponade)
+df$Tear_below_STJ <- as.factor(df$Tear_below_STJ)
+df$Malperfusion_Overall <- as.factor(df$Malperfusion_Overall)
+df$Malperfusion_Coronary <- as.factor(df$Malperfusion_Coronary)
+df$Malperfusion_GI <- as.factor(df$Malperfusion_GI)
+df$Malperfusion_Renal <- as.factor(df$Malperfusion_Renal)
+df$Malperfusion_IlioFem <- as.factor(df$Malperfusion_IlioFem)
+df$Malperfusion_Cerebral <- as.factor(df$Malperfusion_Cerebral)
+df$Malperfusion_Spinal <- as.factor(df$Malperfusion_Spinal)
+df$Malperfusion_Upper_Extremity <- as.factor(df$Malperfusion_Upper_Extremity)
+df$Arch_ID <- as.factor(df$Arch_ID)
+df$AO_Root_Replace <- as.factor(df$AO_Root_Replace)
+df$AV_Replaced <- as.factor(df$AV_Replaced)
+df$Cannulation_ID <- as.factor(df$Cannulation_ID)
+df$White <- as.factor(df$White)
+df$Black <- as.factor(df$Black)
+df$Hispanic <- as.factor(df$Hispanic)
+df$Asian <- as.factor(df$Asian)
+df$Race_other <- as.factor(df$Race_other)
+df$Race_unreported <- as.factor(df$Race_unreported)
+df$AscOnly <- as.factor(df$AscOnly)
+df$AscHemi <- as.factor(df$AscHemi)
+df$AscTotal <- as.factor(df$AscTotal)
+df$CanFem <- as.factor(df$CanFem)
+df$CanAorta <- as.factor(df$CanAorta)
+df$CanAxil <- as.factor(df$CanAxil)
+df$CanOther <- as.factor(df$CanOther)
+df$status <- as.factor(df$status)
+df$dead_30 <- as.factor(df$dead_30)
+
+df<-df %>%
+  mutate(age_80 = if_else(Age_at_Surgery>=80,1,0,0))%>%
+  relocate(Age_at_Surgery,age_80)
+df<-df %>%  
+  mutate(Uncomplicated = if_else(Penn_Class=="0","Uncomplicated (Penn Class A)","Complicated (Penn Class B, C, B-C)"))%>%
+  relocate(Penn_Class, Uncomplicated)
+```
+
+Pre-operative characteristics table
+```{r Table One - Pre-operative characteristics}
+#Pre-operative characteristics
+vars <- c("Sex","age_80", "Age_at_Surgery","White","Black", "Hispanic", "Asian", "Race_other", "Race_unreported", "Current_Smoker","Diabetes","Renal_Failure","COPD","BAV","CAD", "Previous_CVA","Previous_Cardiac_Surgery","Previous_AVR","Dialysis")
+factorVars <- c("Sex","age_80","White","Black", "Hispanic", "Asian", "Race_other", "Race_unreported","Current_Smoker","Diabetes","Renal_Failure","COPD","BAV","CAD", "Previous_CVA","Previous_Cardiac_Surgery","Previous_AVR","Dialysis")
+
+#Table One variables
+tableOneCombined <- CreateTableOne(vars = vars, data = df, factorVars = factorVars, includeNA=TRUE)
+tableOneCombined_export <- print(tableOneCombined)
+#write.csv(tableOneCombined_export, file = "myTable_1.csv",2)
+
+#Stratified by Penn Class
+tableOne <- CreateTableOne(vars = vars, strata = "Penn_Class_Letter", data = df, factorVars = factorVars, includeNA=FALSE)
+tableOne
+#tableOne_export <- print(tableOne)
+#write.csv(tableOne_export, file = "myTable_1.csv")
+```
+
+Clinical presentation variables table
+```{r Table Two - Clinical Presentation Variables}
+#Clinical Presentation Features
+vars <- c("Hypotension_Shock", "Tamponade", "Tear_below_STJ", "Malperfusion_Overall", "Malperfusion_Coronary", "Malperfusion_GI", "Malperfusion_Renal", "Malperfusion_IlioFem", "Malperfusion_Cerebral", "Malperfusion_Spinal", "Malperfusion_Upper_Extremity")
+factorVars <- c("Hypotension_Shock", "Tamponade", "Tear_below_STJ", "Malperfusion_Overall", "Malperfusion_Coronary", "Malperfusion_GI", "Malperfusion_Renal", "Malperfusion_IlioFem", "Malperfusion_Cerebral", "Malperfusion_Spinal", "Malperfusion_Upper_Extremity")
+
+#Stratified by Penn Class
+tabletwo <- CreateTableOne(vars = vars, strata = "Penn_Class", data = df, factorVars = factorVars, includeNA=FALSE)
+tabletwo
+tabletwo_export <- print(tabletwo)
+#write.csv(tabletwo_export, file = "myTable_2.csv")
+
+#Table Two Variables
+tabletwo_combined <- CreateTableOne(vars = vars, data = df, factorVars = factorVars, includeNA=TRUE)
+tabletwo_combined
+tabletwo_combined_export <- print(tabletwo_combined)
+#write.csv(tabletwo_combined_export, file = "myTable_2.csv",2)
+```
+
+Operative variables table
+```{r Table Three - Operative Variables}
+
+#Operative Variables
+vars <- c("CPB","HCA","RCP","AscHemi","AscOnly","AscTotal", "AO_Root_Replace","AV_Replaced","CanAorta","CanFem", "CanAxil", "CanOther")
+factorVars <- c("AscHemi","AscOnly","AscTotal", "AO_Root_Replace","AV_Replaced","CanAorta","CanFem", "CanAxil", "CanOther")
+optimes <- c("CPB", "HCA", "RCP")
+
+#Table Three Variables
+tableThree_Combined <- CreateTableOne(vars = vars, data = df, factorVars = factorVars, includeNA=FALSE)
+tableThree_Combined
+print(tableThree_Combined, nonnormal = optimes)
+
+#Stratified by Penn Class
+tableThree <- CreateTableOne(vars = vars, strata = "Penn_Class", data = df, factorVars = factorVars, includeNA=FALSE)
+tableThree
+#tableThree_export <- print(tableThree, nonnormal = optimes)
+#write.csv(tableThree_export, file = "myTable_3.csv")
+#tableThree_Combined_export <- print(tableThree_Combined, nonnormal = optimes)
+#write.csv(tableThree_Combined_export, file = "myTable_3.csv", 2)
+```
+
+Mortality table
+```{r Table Four - Mortality}
+#Mortality and Cause of Death stratified by Penn Class
+#Make new columns for each cause of death
+df<-df %>%
+  mutate(Cardiac = if_else(grepl("Cardiac", cause_death),"1",
+                           if_else(grepl("", cause_death),"0",NULL))) %>%
+  relocate(Cardiac, cause_death)
+
+df<-df %>%
+  mutate(Extremity_ischemia = if_else(grepl("Extremity ischemia", cause_death),"1",
+                           if_else(grepl("", cause_death),"0",NULL))) %>%
+  relocate(Extremity_ischemia, cause_death)
+
+df<-df %>%
+  mutate(Hemorrhagic = if_else(grepl("Hemorrhagic", cause_death),"1",
+                           if_else(grepl("", cause_death),"0",NULL))) %>%
+  relocate(Hemorrhagic, cause_death)
+
+df<-df %>%
+  mutate(Mesenteric_ischemia = if_else(grepl("Mesenteric ischemia", cause_death),"1",
+                           if_else(grepl("", cause_death),"0",NULL))) %>%
+  relocate(Mesenteric_ischemia, cause_death)
+
+df<-df %>%
+  mutate(MSOF = if_else(grepl("Multisystem organ failure", cause_death),"1",
+                           if_else(grepl("", cause_death),"0",NULL))) %>%
+  relocate(MSOF, cause_death)
+
+df<-df %>%
+  mutate(Neurologic = if_else(grepl("Neurologic", cause_death),"1",
+                           if_else(grepl("", cause_death),"0",NULL))) %>%
+  relocate(Neurologic, cause_death)
+
+df<-df %>%
+  mutate(Sepsis = if_else(grepl("Sepsis", cause_death),"1",
+                           if_else(grepl("", cause_death),"0",NULL))) %>%
+  relocate(Sepsis, cause_death)
+
+df<-df %>%
+  mutate(Unclear = if_else(grepl("Unclear", cause_death),"1",
+                           if_else(grepl("", cause_death),"0",NULL))) %>%
+  relocate(Unclear, cause_death)
+
+#Make table
+vars <- c("dead_30", "cause_death","Cardiac","Extremity_ischemia","Hemorrhagic","Mesenteric_ischemia","MSOF","Neurologic","Sepsis","Unclear")
+factorVars <- c("dead_30", "cause_death","Cardiac","Extremity_ischemia","Hemorrhagic","Mesenteric_ischemia","MSOF","Neurologic","Sepsis","Unclear")
+tableFourComb <- CreateTableOne(vars = vars, data = df, factorVars = factorVars, includeNA=FALSE)
+tableFourComb
+tableFour <- CreateTableOne(vars = vars, strata = "Penn_Class", data = df, factorVars = factorVars, includeNA=FALSE)
+tableFour
+#tableFour_export <- print(tableFour)
+#write.csv(tableFour_export, file = "myTable_4.csv")
+#tableFourComb_export <- print(tableFourComb)
+#write.csv(tableFourComb_export, file = "myTable_4.csv", 2)
+```
+
+Histograms for exploring normality of continuous outcome variables
+```{r Histogram Generation for Quantitative Variables}
+#Non-normal - report Median and IQR
+CPB <- qplot(df$`CPB`, geom="histogram")
+CPB
+HCA <- qplot(df$`HCA`, geom="histogram")
+HCA
+RCP <- qplot(df$`RCP`, geom="histogram")
+RCP
+
+#Normal - report Mean and STD
+AS <- qplot(df$`Age_at_Surgery`, geom="histogram")
+AS
+```
+
+Pairwise p-value calculations
+```{r p-value calculations, include=TRUE}
+
+#Pairwise p-value calculations for those variables that were significant as a group
+
+#Age at Surgery
+pairwise.t.test(df$`Age_at_Surgery`, df$`Penn_Class`, p.adjust.method = "none")
+
+#CPB
+pairwise.t.test(df$CPB, df$`Penn_Class`, p.adjust.method = "none")
+
+#HCA
+pairwise.t.test(df$HCA, df$`Penn_Class`, p.adjust.method = "none")
+
+#Age >= 80
+Age80_Table <- df%>%
+select(Penn_Class, age_80)%>%
+  group_by(Penn_Class)%>%
+  count(age_80)%>%
+  pivot_wider(names_from = age_80, values_from = n)%>%
+  relocate("1","0")
+Age80_table <- as.matrix(subset(Age80_Table, select=c("1","0")))
+Age80_table
+pairwise.prop.test(Age80_table)
+
+#White
+White_Table <- df%>%
+select(Penn_Class, White)%>%
+  group_by(Penn_Class)%>%
+  count(White)%>%
+  pivot_wider(names_from = White, values_from = n)%>%
+  relocate("1","0")
+White_table <- as.matrix(subset(White_Table, select=c("1","0")))
+pairwise.prop.test(White_table)
+
+#Black
+Black_Table <- df%>%
+select(Penn_Class, Black)%>%
+  group_by(Penn_Class)%>%
+  count(Black)%>%
+  pivot_wider(names_from = Black, values_from = n)%>%
+  relocate("1","0")
+Black_table <- as.matrix(subset(Black_Table, select=c("1","0")))
+pairwise.prop.test(Black_table)
+
+#Race_other
+Other_Table <- df%>%
+select(Penn_Class, Race_other)%>%
+  group_by(Penn_Class)%>%
+  count(Race_other)%>%
+  pivot_wider(names_from = Race_other, values_from = n)%>%
+  relocate("1","0")
+Other_table <- as.matrix(subset(Other_Table, select=c("1","0")))
+pairwise.prop.test(Other_table)
+
+#Race_unreported
+Unreported_Table <- df%>%
+select(Penn_Class, Race_unreported)%>%
+  group_by(Penn_Class)%>%
+  count(Race_unreported)%>%
+  pivot_wider(names_from = Race_unreported, values_from = n)%>%
+  relocate("1","0")
+Unreported_table <- as.matrix(subset(Unreported_Table, select=c("1","0")))
+pairwise.prop.test(Unreported_table)
+
+#Dialysis
+Dialysis_Table <- df%>%
+select(Penn_Class, Dialysis)%>%
+  group_by(Penn_Class)%>%
+  count(Dialysis)%>%
+  pivot_wider(names_from = Dialysis, values_from = n)%>%
+  relocate("1","0")
+Dialysis_table <- as.matrix(subset(Dialysis_Table, select=c("1","0")))
+pairwise.prop.test(Dialysis_table)
+
+#Prior AVR
+Previous_AVR_Table <- df%>%
+select(Penn_Class, Previous_AVR)%>%
+  group_by(Penn_Class)%>%
+  count(Previous_AVR)%>%
+  pivot_wider(names_from = Previous_AVR, values_from = n)%>%
+  relocate("1","0")
+Previous_AVR_table <- as.matrix(subset(Previous_AVR_Table, select=c("1","0")))
+pairwise.prop.test(Previous_AVR_table)
+
+#Prior stroke
+Stroke_Table <- df%>%
+select(Penn_Class, Previous_CVA)%>%
+  group_by(Penn_Class)%>%
+  count(Previous_CVA)%>%
+  pivot_wider(names_from = Previous_CVA, values_from = n)%>%
+  relocate("1","0")
+Stroke_table <- as.matrix(subset(Stroke_Table, select=c("1","0")))
+pairwise.prop.test(Stroke_table)
+
+#Prior Cardiac Surgery
+PCS_Table <- df%>%
+select(Penn_Class, Previous_Cardiac_Surgery)%>%
+  group_by(Penn_Class)%>%
+  count(Previous_Cardiac_Surgery)%>%
+  pivot_wider(names_from = Previous_Cardiac_Surgery, values_from = n)%>%
+  relocate("1","0")
+PCS_table <- as.matrix(subset(PCS_Table, select=c("1","0")))
+pairwise.prop.test(PCS_table)
+
+#Renal failure
+RF_Table <- df%>%
+select(Penn_Class, Renal_Failure)%>%
+  group_by(Penn_Class)%>%
+  count(Renal_Failure)%>%
+  pivot_wider(names_from = Renal_Failure, values_from = n)%>%
+  relocate("1","0")
+RF_table <- as.matrix(subset(RF_Table, select=c("1","0")))
+pairwise.prop.test(RF_table)
+
+#Hypotension/Shock
+Shock_Table <- df%>%
+select(Penn_Class, Hypotension_Shock)%>%
+  group_by(Penn_Class)%>%
+  count(Hypotension_Shock)%>%
+  pivot_wider(names_from = Hypotension_Shock, values_from = n)%>%
+  relocate("1","0")
+Shock_table <- as.matrix(subset(Shock_Table, select=c("1","0")))
+Shock_table
+pairwise.prop.test(Shock_table)
+
+#Tamponade
+Tamponade_Table <- df%>%
+select(Penn_Class, Tamponade)%>%
+  group_by(Penn_Class)%>%
+  count(Tamponade)%>%
+  pivot_wider(names_from = Tamponade, values_from = n)%>%
+  relocate("1","0")
+Tamponade_table <- as.matrix(subset(Tamponade_Table, select=c("1","0")))
+pairwise.prop.test(Tamponade_table)
+
+#Tear Below STJ
+STJ_Table <- df%>%
+select(Penn_Class, Tear_below_STJ)%>%
+  group_by(Penn_Class)%>%
+  count(Tear_below_STJ)%>%
+  pivot_wider(names_from = Tear_below_STJ, values_from = n)%>%
+  relocate("1","0")
+STJ_table <- as.matrix(subset(STJ_Table, select=c("1","0")))
+pairwise.prop.test(STJ_table)
+
+#AVR (in operation)
+AVR_Table <- df%>%
+select(Penn_Class, AV_Replaced)%>%
+  group_by(Penn_Class)%>%
+  count(AV_Replaced)%>%
+  pivot_wider(names_from = AV_Replaced, values_from = n)%>%
+  relocate("1","0")
+AVR_table <- as.matrix(subset(AVR_Table, select=c("1","0")))
+pairwise.prop.test(AVR_table)
+
+#Cannulation Site Femoral
+CanFem_Table <- df%>%
+select(Penn_Class, CanFem)%>%
+  group_by(Penn_Class)%>%
+  count(CanFem)%>%
+  pivot_wider(names_from = CanFem, values_from = n)%>%
+  relocate("1","0")
+CanFem_table <- as.matrix(subset(CanFem_Table, select=c("1","0")))
+pairwise.prop.test(CanFem_table)
+
+#30 day post-op mortality by Penn Class
+dead30_Table <- df%>%
+select(Penn_Class, dead_30)%>%
+  group_by(Penn_Class)%>%
+  count(dead_30)%>%
+  pivot_wider(names_from = dead_30, values_from = n)%>%
+  relocate("1","0")
+dead30_table <- as.matrix(subset(dead30_Table, select=c("1","0")))
+pairwise.prop.test(dead30_table)
+
+#30 day post-op mortality by Malperfusion Site
+dead30site_Table <- df%>%
+select(Malperfusion_Coronary, Malperfusion_GI, Malperfusion_Renal, Malperfusion_IlioFem,
+                 Malperfusion_Cerebral, Malperfusion_Spinal, Malperfusion_Upper_Extremity, NoLocalMalperf, dead_30)%>%
+  pivot_longer(
+    cols = c(Malperfusion_Coronary, Malperfusion_GI, Malperfusion_Renal, Malperfusion_IlioFem,
+                 Malperfusion_Cerebral, Malperfusion_Spinal, Malperfusion_Upper_Extremity, NoLocalMalperf),
+    names_to = "malperf_name",
+    values_to = "malperf_val")%>%
+  filter(malperf_val == 1) %>%
+  group_by(malperf_name) %>%
+  count(dead_30) %>%
+  pivot_wider(names_from = dead_30, values_from = n)%>%
+  relocate("1","0")
+dead30site_Table
+dead30site_table <- as.matrix(subset(dead30site_Table, select=c("1","0")))
+dead30site_table
+pairwise.prop.test(dead30site_table)
+
+#30 day post-op mortality by Complication Status
+ComplicationTable <- df%>%
+select(Uncomplicated, dead_30)%>%
+  group_by(Uncomplicated)%>%
+  count(dead_30)%>%
+  pivot_wider(names_from = dead_30, values_from = n)%>%
+  relocate("1","0")
+ComplicationTable
+dead_complicated <- as.matrix(subset(ComplicationTable, select=c("1","0")))
+dead_complicated
+pairwise.prop.test(dead_complicated)
+
+#30 day post-op mortality by Complication Status
+BedNumberTable <- df.model2%>%
+select(num_malperf.cat, dead_30)%>%
+  group_by(num_malperf.cat)%>%
+  count(dead_30)%>%
+  pivot_wider(names_from = dead_30, values_from = n)%>%
+  relocate("1","0")
+BedNumberTable
+BedNumberDead <- as.matrix(subset(BedNumberTable, select=c("1","0")))
+BedNumberDead
+pairwise.prop.test(BedNumberDead)
+```
+
+Figure 2A - Malperfusion distribution by penn class
+```{r Figure 2A WLP + SY, include=TRUE, echo = FALSE}
+#Figure 2
+Fig2a <- df%>%
+select(Penn_Class_Letter)%>%
+  group_by(Penn_Class_Letter)%>%
+  summarise(count = n(), percent = ((count/nrow(df))*100))%>%
+  arrange(percent)%>%
+  ggplot(aes(x = Penn_Class_Letter, y = percent))+
+  geom_col(stat="identity", fill = "#990000")+
+  geom_text(aes(label=paste0(round(percent, digits =1),"%")),vjust=-0.3, size=3.5)+
+  coord_cartesian(ylim = c(0,60))+xlab("Penn Class")+
+  ylab("Percent of Cohort")+
+  ggtitle("A.")+
+  theme(plot.title = element_text(face="bold"))+scale_x_discrete(limits=c("A", "B", "C","B-C"))+
+  scale_y_continuous(labels = function(x) paste0(x, '%'))
+```
+
+Fig 2B - Categorization of malperfusion by complicated vs. uncomplicated
+```{r Fig 2B}
+Fig2b <- df%>%
+select(Uncomplicated)%>%
+  group_by(Uncomplicated)%>%
+  summarise(count = n(), percent = ((count/nrow(df))*100))%>%
+  arrange(percent)%>%
+  ggplot(aes(x = Uncomplicated, y = percent))+
+  geom_col(stat="identity", fill = "#990000")+
+  geom_text(aes(label=paste0(round(percent, digits =1),"%")),vjust=-0.3, size=3.5)+
+  coord_cartesian(ylim = c(0,60))+xlab("Uncomplicated")+
+  ylab("Percent of Cohort")+xlab("Complication Status")+
+  scale_y_continuous(labels = function(x) paste0(x, '%'))+
+  scale_x_discrete(limits=c("Uncomplicated (Penn Class A)","Complicated (Penn Class B, C, B-C)"))+
+  ggtitle("B.")+
+  theme(plot.title = element_text(face="bold"))
+```
+
+Figure 2C - Categorization of malperfusion by # of Malperfused Beds
+```{r Supp Fig 2C}
+# Categorize number of malperfused beds into 0, 1, 2, or >=3
+df.model2$num_malperf.cat <- recode_factor(df.model2$num_malperf.cat, "0" = "0", "1" = "1", "2" = "2", "3" = ">=3")
+
+Fig2c <- df.model2%>%
+select(num_malperf.cat)%>%
+  group_by(num_malperf.cat)%>%
+  summarise(count = n(), percent = ((count/nrow(df))*100))%>%
+  arrange(percent)%>%
+  ggplot(aes(x = num_malperf.cat, y = percent))+
+  geom_col(stat="identity", fill = "#990000")+
+  geom_text(aes(label=paste0(round(percent, digits =1),"%")),vjust=-0.3, size=3.5)+
+  coord_cartesian(ylim = c(0,70))+xlab("Number of Malperfused Beds")+
+  ylab("Percent of Cohort")+
+  ggtitle("C.")+
+  theme(plot.title = element_text(face="bold"))+scale_x_discrete(limits=c("0", "1", "2", ">=3"))+
+  scale_y_continuous(labels = function(x) paste0(x, '%'))
+```
+
+Figure 2D - Malperfusion distribution by vascular bed for total cohort
+```{r Figure 2D, include=TRUE, echo = FALSE}
+#Figure 1A - distribution by vascular bed
+df<-df %>%
+  mutate(NoLocalMalperf = if_else(Malperfusion_Overall==0,1,0,0))%>%
+  relocate(NoLocalMalperf,Malperfusion_Overall)
+df$NoLocalMalperf <- as.factor(df$NoLocalMalperf)
+Fig2d <- df%>%
+  select(Malperfusion_Coronary, Malperfusion_GI, Malperfusion_Renal, Malperfusion_IlioFem, Malperfusion_Cerebral, Malperfusion_Spinal, Malperfusion_Upper_Extremity, NoLocalMalperf)%>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "malperf_name",
+    values_to = "malperf_val")%>%
+  filter(malperf_val == 1) %>%
+  group_by(malperf_name)%>%
+  summarise(count = n(), percent = ((count/nrow(df))*100))%>%
+  arrange(percent)%>%
+  ggplot(aes(x=reorder(malperf_name, -count), y=percent, fct_infreq(malperf_name)))+
+  geom_bar(stat="identity", fill = "#990000")+
+  geom_text(aes(label=paste0(round(percent, digits =1),"%")),vjust=-0.3, size=3.5)+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  coord_cartesian(ylim = c(0,70)) + xlab("Vascular Bed") + ylab("Percent of Cohort")+
+  ggtitle("D.")+
+  theme(plot.title = element_text(face="bold"))+
+  scale_y_continuous(labels = function(x) paste0(x, '%'))+scale_x_discrete(labels = c("None", "Iliofemoral", "Cerebral", "Coronary", "Renal", "Mesenteric", "Upper Extremity", "Spinal"))
+```
+
+Figure 3 - 30-day mortality by penn class
+```{r Figure 3 SY, include=TRUE, echo=FALSE}
+#Figure 3
+Fig_3 <- df%>%
+select(Penn_Class_Letter, dead_30)%>%
+  group_by(Penn_Class_Letter)%>%
+  count(dead_30)%>%
+  pivot_wider(names_from = dead_30, values_from = n)%>%
+  mutate(percent = `1`/(`1`+`0`) *100)%>%
+  arrange(percent)%>%
+  ggplot(aes(x = Penn_Class_Letter, y = percent))+
+  geom_col(stat="identity", fill = "#990000")+
+  geom_text(aes(label=paste0(round(percent, digits =1),"%")),vjust=-0.3, size=3.5)+
+  coord_cartesian(ylim = c(0,60))+xlab("Penn Class")+
+  ylab("30-day post-op mortality")+
+  ggtitle("")+
+  theme(plot.title = element_text(face="bold"))+scale_x_discrete(limits=c("A", "B", "C","B-C"))+
+  scale_y_continuous(labels = function(x) paste0(x, '%'))+
+  #Add Brackets
+  geom_bracket(xmin = c("A", "A", "A", "B", "C"), xmax  = c("B", "C", "B-C", "B-C", "B-C"),
+               y.position = c(22, 29, 58, 51, 44), label = c("*","**","**","**","**"))
+
+ggsave(
+  "Figure 3_Final.pdf",
+  plot = Fig_3,
+  device = NULL,
+  path = "~/Desktop/Sid R Project",
+  scale = 2,
+  width = 3,
+  height = 3,
+  dpi = 300,
+  limitsize = TRUE,
+)
+```
+
+Figure 4 - Cause of death by penn class (100% stacked bar chart)
+```{r Figure 4 SY, include=TRUE, echo=FALSE}
+#Figure4
+Fig_4 <- df%>%
+  select(Penn_Class_Letter, cause_death)%>%
+  na.omit(cause_death) %>%
+  group_by(Penn_Class_Letter)%>%
+  count(cause_death)%>%
+  ggplot(aes(x=`Penn_Class_Letter`, y=`n`, fill=`cause_death`)) + geom_bar(stat="identity", position = "fill") + scale_x_discrete(limits=c("A", "B", "C","B-C")) + scale_y_continuous(labels = scales::percent)+scale_fill_brewer(palette="Set1") + xlab("Penn Class") + ylab ("Percent") + labs(fill = "Cause of Death")
+
+ggsave(
+  "Figure 4.pdf",
+  plot = Fig_4,
+  device = NULL,
+  path = "~/Desktop/Sid R Project",
+  scale = 2,
+  width = 3,
+  height = 3,
+  dpi = 300,
+  limitsize = TRUE,
+)
+```
+
+Supplemental Fig 1A - 30-day mortality by complicated vs. uncomplicated
+```{r Supp Fig 1A}
+SuppFig1a <- df%>%
+select(Uncomplicated, dead_30)%>%
+  group_by(Uncomplicated)%>%
+  count(dead_30)%>%
+  pivot_wider(names_from = dead_30, values_from = n)%>%
+  mutate(percent = `1`/(`1`+`0`) *100)%>%
+  arrange(percent)%>%
+  ggplot(aes(x = Uncomplicated, y = percent))+
+  geom_col(stat="identity", fill = "#990000")+
+  geom_text(aes(label=paste0(round(percent, digits =1),"%")),vjust=-0.3, size=3.5)+
+  coord_cartesian(ylim = c(0,40))+xlab("Complicated")+
+  ylab("30-day post-op mortality")+
+  ggtitle("A.")+
+  theme(plot.title = element_text(face="bold"))+scale_x_discrete(limits=c("Uncomplicated (Penn Class A)", "Complicated (Penn Class B, C, B-C)"))+scale_y_continuous(labels = function(x) paste0(x, '%'))+
+  geom_bracket(xmin = c("Uncomplicated (Penn Class A)"), xmax  = c("Complicated (Penn Class B, C, B-C)"),
+               y.position = c(25), label = c("**"))
+
+SuppFig1a
+```
+
+Supplemental Fig 1B - 30-day mortality by number of malperfused beds
+```{r Supp Fig 1B}
+SuppFig1b <- df.model2%>%
+select(num_malperf.cat, dead_30)%>%
+  group_by(num_malperf.cat)%>%
+  count(dead_30)%>%
+  pivot_wider(names_from = dead_30, values_from = n)%>%
+  mutate(percent = `1`/(`1`+`0`) *100)%>%
+  arrange(percent)%>%
+  ggplot(aes(x = num_malperf.cat, y = percent))+
+  geom_col(stat="identity", fill = "#990000")+
+  geom_text(aes(label=paste0(round(percent, digits =1),"%")),vjust=-0.3, size=3.5)+
+  coord_cartesian(ylim = c(0,60))+xlab("Number of Malperfused Beds")+
+  ylab("30-day post-op mortality")+
+  ggtitle("B.")+
+  theme(plot.title = element_text(face="bold"))+scale_x_discrete(limits=c("0", "1", "2", ">=3"))+scale_y_continuous(labels = function(x) paste0(x, '%'))+geom_bracket(xmin = c("0","0","1","2"), xmax  = c("1",">=3",">=3",">=3"),
+               y.position = c(23,59,53,47), label = c("**"))
+```
+
+Supplemental Fig 1C - 30-day mortality by vascular bed
+```{r Figure 1C SY, include=TRUE, echo=FALSE}
+#Figure 1C
+SuppFig1c <- df%>%
+select(Malperfusion_Coronary, Malperfusion_GI, Malperfusion_Renal, Malperfusion_IlioFem,
+                 Malperfusion_Cerebral, Malperfusion_Spinal, Malperfusion_Upper_Extremity, NoLocalMalperf, dead_30)%>%
+  pivot_longer(
+    cols = c(Malperfusion_Coronary, Malperfusion_GI, Malperfusion_Renal, Malperfusion_IlioFem,
+                 Malperfusion_Cerebral, Malperfusion_Spinal, Malperfusion_Upper_Extremity, NoLocalMalperf),
+    names_to = "malperf_name",
+    values_to = "malperf_val")%>%
+  filter(malperf_val == 1) %>%
+  group_by(malperf_name) %>%
+  count(dead_30) %>%
+  pivot_wider(names_from = dead_30, values_from = n) %>%
+  mutate(percent = `1`/(`1`+`0`) *100) %>%
+  arrange(percent)%>%
+  ggplot(aes(x=reorder(malperf_name, percent), y=percent, fct_infreq(malperf_name)))+geom_col(stat="identity", fill = "#990000")+
+  geom_text(aes(label=paste0(round(percent, digits =1),"%")),vjust=-0.3,size=3.5)+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  coord_cartesian(ylim = c(0,60))+xlab("Vascular Bed")+
+  ylab("30-day post-op mortality (%)")+
+  ggtitle("C.")+
+  theme(plot.title = element_text(face="bold"))+
+  scale_y_continuous(labels = function(x) paste0(x, '%'))+scale_x_discrete(labels = c("None", "Upper Extremity", "Cerebral", "Iliofemoral", "Coronary", "Renal", "Spinal", "Mesenteric"))+
+  #Add Brackets
+  geom_bracket(xmin = c("NoLocalMalperf", "NoLocalMalperf", "NoLocalMalperf", "NoLocalMalperf", "NoLocalMalperf", "NoLocalMalperf"), xmax  = c("Malperfusion_Cerebral", "Malperfusion_IlioFem", "Malperfusion_Coronary", "Malperfusion_Renal", "Malperfusion_Spinal", "Malperfusion_GI"),
+               y.position = c(28, 34, 40, 46, 52, 58), label = c("**","**","**","**","**","**"))
+```
+
+Fig 2 and Supp Fig Formatting (2x2)
+```{r Fig 2 (2x2)}
+figure_2 <- (Fig2a | Fig2b)/(Fig2c | Fig2d)
+
+ggsave(
+  "Figure 2 MEDIUM_Final.pdf",
+  plot = figure_2,
+  device = NULL,
+  path = "~/Desktop/Sid R Project",
+  scale = 2.1,
+  width = 6,
+  height = 6,
+  dpi = 300,
+  limitsize = TRUE,
+)
+
+SuppFig1 <- (SuppFig1a | SuppFig1b)/(SuppFig1c)
+ggsave(
+  "SuppFig1_Final.pdf",
+  plot = SuppFig1,
+  device = NULL,
+  path = "~/Desktop/Sid R Project",
+  scale = 2.1,
+  width = 6,
+  height = 6,
+  dpi = 300,
+  limitsize = TRUE,
+)
+
+```
+
+Figure extra - Malperfusion distribution by vascular bed for patients in only Penn Class B, B-C
+```{r Figure 1a alt WLP + SY, include=TRUE, echo = FALSE}
+# Filter for only those with local malperfusion (Penn Class B or BC)
+BedSiteB_BC <- df.model3%>%
+  select(Malperfusion_Coronary, Malperfusion_GI, Malperfusion_Renal, Malperfusion_IlioFem,
+                 Malperfusion_Cerebral, Malperfusion_Spinal, Malperfusion_Upper_Extremity)%>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "malperf_name",
+    values_to = "malperf_val")%>%
+  filter(malperf_val == 1) %>%
+  group_by(malperf_name)%>%
+  summarise(count = n(), percent = ((count/nrow(df.model3))*100))%>%
+  arrange(percent)%>%
+  ggplot(aes(x=reorder(malperf_name, -count), y=percent, fct_infreq(malperf_name)))+
+  geom_bar(stat="identity", fill = "#990000") + 
+  geom_text(aes(label=paste0(round(percent, digits =1),"%")),vjust=-0.3, size=3.5)+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  coord_cartesian(ylim = c(0,50)) + xlab("Vascular Bed") + ylab("Percent of Cohort")+
+  ggtitle("Malperfusion by Vascular Bed - Only Penn Class B and B-C")+
+  theme(plot.title = element_text(face="bold"))+
+  scale_y_continuous(labels = function(x) paste0(x, '%'))+scale_x_discrete(labels = c("Iliofemoral", "Cerebral", "Coronary", "Renal", "Mesenteric", "Upper Extremity", "Spinal"))
+ggsave(
+  "BedSiteB_BC.pdf",
+  plot = BedSiteB_BC,
+  device = NULL,
+  path = "~/Desktop/Sid R Project",
+  scale = 2.1,
+  width = 3,
+  height = 3,
+  dpi = 300,
+  limitsize = TRUE,
+)
+```
+
+##Models
+```{r WLP creating data frame for modeling}
+#make a new data frame that insures all features are complete (i.e. as O and 1)
+df.models <- df %>%
+  mutate(dead_30 = if_else(dead_30 == 1, 1, 0, 0),
+         age_80 = if_else(age_80 == 1,1,0,0),
+         Sex = if_else(Sex == 1,1,0,0),
+         White = if_else(White == 1, 1, 0,0),
+         Diabetes = if_else(Diabetes == 1, 1, 0, 0),
+         COPD = if_else(COPD == 1,1,0,0),
+         Renal_Failure = if_else(Renal_Failure == 1, 1,0,0),
+         BAV = if_else(BAV == 1, 1, 0, 0),
+         Previous_CVA = if_else(Previous_CVA == 1, 1, 0, 0),
+         Previous_Cardiac_Surgery = if_else(Previous_Cardiac_Surgery == 1, 1, 0, 0),
+         )
+df.models$Penn_Class <- as.factor(df.models$Penn_Class)
+```
+
+Model 1a
+Includes all variables in expert opinion model
+```{r model 1a, include=TRUE, error=F}
+model.1a.wlp <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+                     BAV + Previous_CVA + Previous_Cardiac_Surgery,
+                   data = df, family = binomial(link = "logit"))
+
+install.packages("cutpointr")
+install.packages("InformationValue")
+library(InformationValue)
+detach("package:InformationValue", unload=TRUE)
+library(cutpointr)
+wlp.1a.pred <- predict.glm(model.1a.wlp, df.model4, type = "response")
+head(wlp.1a.pred)
+wlp.1a.predt <- ifelse(wlp.1a.pred >= 0.2, 1, 0)
+head(wlp.1a.predt)
+wlp.1a.pred1 <- as.factor(wlp.1a.predt)
+confusionMatrix(df.model4$dead_30, wlp.1a.pred1)
+
+
+
+opt.1a <- optimalCutoff(df.model4$dead_30, wlp.1a.pred, optimiseFor='Ones')
+
+summary(model.1a.wlp)
+model1a <- tidy(model.1a.wlp, exponentiate = T, conf.int = T)
+model1a_export <- print(model1a)
+#write.csv(model1a_export, file = "model1a.csv")
+DescTools::Cstat(model.1a.wlp) #0.6073038
+BrierScore(model.1a.wlp) #0.1024879
+```
+
+Bootstrapped C-statistic for Model 1a
+```{r model 1a, include=TRUE, error=F}
+c_stat_boot.model.1a.wlp.f <- function(data, i){
+  d <- data[i,]
+  m <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+                     BAV + Previous_CVA + Previous_Cardiac_Surgery,
+                   data = d, family = binomial(link = "logit"))
+  DescTools::Cstat(m)
+}
+
+set.seed(215)
+booted_c.model.1a <- boot(df,c_stat_boot.model.1a.wlp.f, R=1000)
+booted_c.model.1a #0.6073038
+boot.ci(boot.out = booted_c.model.1a, type = c("norm")) #(0.5480, 0.6393) 
+```
+
+Model 1b
+A nested model with 1a that includes penn class
+```{r model 1b,include=TRUE, error=F}
+#model.1b.wlp is 
+model.1b.wlp <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+                     BAV + Previous_CVA + Previous_Cardiac_Surgery + Penn_Class,
+                   data = df, family = binomial(link = "logit"))
+
+model1b <- tidy(model.1b.wlp, exponentiate = T, conf.int = T)
+model1b_export <- print(model1b)
+#write.csv(model1b_export, file = "model1b.csv")
+DescTools::Cstat(model.1b.wlp) #0.7720557
+BrierScore(model.1b.wlp) #0.09187663
+```
+
+Bootstrapped C-statistic for model 1b
+```{r model 1b,include=TRUE, error=F}
+c_stat_boot.model.1b.wlp.f <- function(data, i){
+  d <- data[i,]
+  m <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+                     BAV + Previous_CVA + Previous_Cardiac_Surgery + Penn_Class,
+                   data = d, family = binomial(link = "logit"))
+  DescTools::Cstat(m)
+}
+
+set.seed(215)
+booted_c.model.1 <- boot(df,c_stat_boot.model.1b.wlp.f, R=1000)
+booted_c.model.1 #0.7720557
+boot.ci(boot.out = booted_c.model.1, type = c("norm")) #(0.7216, 0.7986)
+```
+
+Comparison of model 1a and 1b (LR Test)
+```{r comparison of model 1a and 1b,include=TRUE, error=F}
+#compare model.1a.wlp to model.1b.wlp
+lrtest(model.1a.wlp,model.1b.wlp) #liklihood ratio test p<0.01
+```
+
+Comparison of model 1a and 3 (LR Test)
+```{r comparison of model 1a and 3}
+model.1a3.wlp <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+                    BAV + Previous_CVA + Previous_Cardiac_Surgery,
+                   data = df.model3, family = binomial(link = "logit"))
+lrtest(model.1a.wlp, model.3.wlp)
+```
+
+Create model 2, which replaced Penn Class with NUMBER of malperfused vascular beds
+```{r model 2 dataframe creation, include=F, error=F}
+#look at count by penn class
+df %>%
+  group_by(Penn_Class)%>%
+  summarise(count = n())
+
+#make new data frame
+df.model2 <- df %>%
+  dplyr::mutate(num_malperf.cat = case_when(
+                                  num_Malperfusion_Beds ==0 ~ "0",
+                                  num_Malperfusion_Beds ==1 ~ "1",
+                                  num_Malperfusion_Beds ==2 ~ "2",
+                                  num_Malperfusion_Beds >= 3 ~ ">=3")
+  )
+  
+
+df.model2$num_malperf.cat <- as.factor(df.model2$num_malperf.cat)
+```
+
+```{r model 2 specification, include=TRUE, error=F}
+#make correct reference group
+df.model2$num_malperf.cat <- relevel(df.model2$num_malperf.cat, ref = "0")
+
+model.2.wlp <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+                     BAV + Previous_CVA + Previous_Cardiac_Surgery + num_malperf.cat,
+                   data = df.model2, family = binomial(link = "logit"))
+
+summary(model.2.wlp)
+model2 <- tidy(model.2.wlp, exponentiate = T, conf.int = T)
+model2_export <- print(model2)
+write.csv(model2_export, file = "model2.csv")
+DescTools::Cstat(model.2.wlp)
+BrierScore(model.2.wlp)
+```
+
+Bootstrapped C-statistic for model 2
+```{r bootsrapped c-stat for model 2}
+c_stat_boot.model.2.wlp.f <- function(data, i){
+  d <- data[i,]
+  m <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+                     BAV + Previous_CVA + Previous_Cardiac_Surgery + num_malperf.cat,
+                   data = d, family = binomial(link = "logit"))
+  DescTools::Cstat(m)
+}
+
+set.seed(215)
+booted_c.model.2 <- boot(df.model2,c_stat_boot.model.2.wlp.f, R=1000)
+booted_c.model.2 #C-stat: 0.7380382
+boot.ci(boot.out = booted_c.model.2, type = c("norm")) #95% CI (0.6876, 0.7684)
+```
+
+Create Model 3, which includes the particular vascular bed involved. It does not include Penn class or the number of vascular beds
+We only include patient with local ischemia (Class B or B-C)
+One of the obvious shortcoming of the other systems is that they do not have predictive ability for those patients with total collapse. 
+```{r create dataframe for model 3, include=F}
+#make new data fram with only penn class = 1 or 3
+#make sure each of the malperfusion beds is a complete case variable
+df.model3 <- df %>%
+  dplyr::filter(Penn_Class %in% c(1,3))%>%
+  dplyr::mutate(Malperfusion_Coronary = if_else(Malperfusion_Coronary ==1,1,0,0),
+                Malperfusion_GI = if_else(Malperfusion_GI == 1,1,0,0),
+                Malperfusion_Renal = if_else(Malperfusion_Renal ==1,1,0,0),
+                Malperfusion_IlioFem = if_else(Malperfusion_IlioFem == 1,1,0,0),
+                Malperfusion_Cerebral = if_else(Malperfusion_Cerebral == 1,1,0,0),
+                Malperfusion_Spinal = if_else(Malperfusion_Spinal == 1,1,0,0),
+                Malperfusion_Upper_Extremity = if_else(Malperfusion_Upper_Extremity == 1,1,0,0)
+              )
+
+
+```
+
+```{r create model 3, include=TRUE}
+#model.3.wlp <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+                     #BAV + Previous_CVA + Previous_Cardiac_Surgery + 
+                     #Malperfusion_Coronary + Malperfusion_GI + Malperfusion_Renal + 
+                     #Malperfusion_IlioFem + Malperfusion_Cerebral + Malperfusion_Spinal +
+                     #Malperfusion_Upper_Extremity,
+                   #data = df.model3, family = binomial(link = "logit"))
+
+summary(model.3.wlp)
+model3 <- tidy(model.3.wlp, exponentiate = T, conf.int = T)
+model3_export <- print(model3)
+#write.csv(model3_export, file = "model3.csv")
+DescTools::Cstat(model.3.wlp)
+BrierScore(model.3.wlp)
+
+model.3.wlp <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+                     BAV + Previous_CVA + Previous_Cardiac_Surgery + 
+                     Malperfusion_Coronary + Malperfusion_GI + Malperfusion_Renal + 
+                     Malperfusion_IlioFem + Malperfusion_Cerebral + Malperfusion_Spinal +
+                     Malperfusion_Upper_Extremity + NoLocalMalperf,
+                   data = df.model4, family = binomial(link = "logit"))
+
+summary(model.3.wlp)
+model3 <- tidy(model.3.wlp, exponentiate = T, conf.int = T)
+model3
+model3b_export <- print(model3)
+write.csv(model3b_export, file = "model3bb.csv")
+DescTools::Cstat(model.3.wlp)
+BrierScore(model.3.wlp)
+```
+
+Bootstrapped C-statistic for Model 3
+```{r Bootstrapped C-statistic for Model 3, include=TRUE}
+c_stat_boot.model.3.wlp.f <- function(data, i){
+  d <- data[i,]
+  m <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+                     BAV + Previous_CVA + Previous_Cardiac_Surgery + 
+                     Malperfusion_Coronary + Malperfusion_GI + Malperfusion_Renal + 
+                     Malperfusion_IlioFem + Malperfusion_Cerebral + Malperfusion_Spinal +
+                     Malperfusion_Upper_Extremity + NoLocalMalperf,
+                   data = d, family = binomial(link = "logit"))
+  DescTools::Cstat(m)
+}
+
+set.seed(215)
+booted_c.model.3 <- boot(df.model4,c_stat_boot.model.3.wlp.f, R=1000)
+booted_c.model.3 #C-stat: 0.6618086
+boot.ci(boot.out = booted_c.model.3, type = c("norm")) #95% CI (0.5459, 0.6687)
+```
+
+Create Model 4, uncomplicated (Class A) vs. complicated (B, C, B-C) instead of original Penn Class stratification
+```{r model 4 dataframe creation, include=F, error=F}
+
+#make new data frame
+df.model4 <- df.model2 %>%
+  dplyr::mutate(complicated = case_when(
+                                  Penn_Class ==0 ~ "0",
+                                  Penn_Class ==1 ~ "1",
+                                  Penn_Class ==2 ~ "1",
+                                  Penn_Class ==3 ~ "1")
+  )
+  
+
+df.model4$complicated <- as.factor(df.model4$complicated)
+```
+
+```{r create model 4, include=TRUE}
+
+#model.4.wlp is 
+model.4.wlp <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+                     BAV + Previous_CVA + Previous_Cardiac_Surgery + complicated,
+                   data = df.model4, family = binomial(link = "logit"))
+
+summary(model.4.wlp)
+model4 <- tidy(model.4.wlp, exponentiate = T, conf.int = T)
+model4_export <- print(model4)
+#write.csv(model4_export, file = "model4.csv")
+DescTools::Cstat(model.4.wlp)
+BrierScore(model.4.wlp)
+```
+
+Bootstrapped C-statistic for Model 4
+```{r Bootstrapped C-statistic for Model 4, include=TRUE}
+c_stat_boot.model.4.wlp.f <- function(data, i){
+  d <- data[i,]
+  m <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+                     BAV + Previous_CVA + Previous_Cardiac_Surgery + complicated, 
+           data = d, family = binomial(link = "logit"))
+  DescTools::Cstat(m)
+}
+
+set.seed(215)
+booted_c.model.4 <- boot(df.model4, c_stat_boot.model.4.wlp.f, R=1000)
+booted_c.model.4 #C-stat: 0.7139168
+boot.ci(boot.out = booted_c.model.4, type = c("norm")) #95% CI (0.6606, 0.7378)
+```
+
+Bootstrap C-statistic Difference between WLP Model 1b and Model 1a
+```{r Bootstrap C-stat Difference Model 1b - Model 1a}
+c_stat_boot.1a.1b.wlp.f <- function(data, i){
+  d <- data[i,]
+  m1a <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+               BAV + Previous_CVA + Previous_Cardiac_Surgery,
+             data = d, family = binomial(link = "logit"))
+  m1b <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+               BAV + Previous_CVA + Previous_Cardiac_Surgery + Penn_Class,
+             data = d, family = binomial(link = "logit"))
+  DescTools::Cstat(m1b)-DescTools::Cstat(m1a)
+}
+
+set.seed(215)
+booted_c.model.1a.1b <- boot(df.models, c_stat_boot.1a.1b.wlp.f, R=1000)
+booted_c.model.1a.1b
+boot.ci(boot.out = booted_c.model.1a.1b, type = c("norm"))
+```
+
+Bootstrap C-statistic Difference between WLP Model 2 and Model 1a
+```{r Bootstrap C-stat Difference Model 2 - Model 1a}
+c_stat_boot.1a.2.wlp.f <- function(data, i){
+  d <- data[i,]
+  m1a <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+               BAV + Previous_CVA + Previous_Cardiac_Surgery,
+             data = d, family = binomial(link = "logit"))
+  m2 <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+             BAV + Previous_CVA + Previous_Cardiac_Surgery + num_malperf.cat,
+           data = d, family = binomial(link = "logit"))
+  DescTools::Cstat(m2)-DescTools::Cstat(m1a)
+}
+
+set.seed(215)
+booted_c.model.1a.2 <- boot(df.model2, c_stat_boot.1a.2.wlp.f, R=1000)
+booted_c.model.1a.2
+boot.ci(boot.out = booted_c.model.1a.2, type = c("norm"))
+```
+
+Bootstrap C-statistic Difference between WLP Model 1b and Model 2
+```{r Bootstrap C-stat Difference Model 1b - Model 2}
+c_stat_boot.1b.2.wlp.f <- function(data, i){
+  d <- data[i,]
+  m1b <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+               BAV + Previous_CVA + Previous_Cardiac_Surgery + Penn_Class,
+             data = d, family = binomial(link = "logit"))
+  m2 <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+              BAV + Previous_CVA + Previous_Cardiac_Surgery + num_malperf.cat,
+            data = d, family = binomial(link = "logit"))
+  DescTools::Cstat(m1b)-DescTools::Cstat(m2)
+}
+
+set.seed(215)
+booted_c.model.1b.2 <- boot(df.model2, c_stat_boot.1b.2.wlp.f, R=1000)
+booted_c.model.1b.2
+boot.ci(boot.out = booted_c.model.1b.2, type = c("norm"))
+```
+
+Bootstrap C-statistic Difference between WLP Model 3 and Model 1a
+```{r Bootstrap C-stat Difference Model 3 - Model 1a}
+c_stat_boot.1a.3.wlp.f <- function(data, i){
+  d <- data[i,]
+  m1a <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+               BAV + Previous_CVA + Previous_Cardiac_Surgery,
+             data = d, family = binomial(link = "logit"))
+  m3 <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+             BAV + Previous_CVA + Previous_Cardiac_Surgery + 
+             Malperfusion_Coronary + Malperfusion_GI + Malperfusion_Renal + 
+             Malperfusion_IlioFem + Malperfusion_Cerebral + Malperfusion_Spinal +
+             Malperfusion_Upper_Extremity + NoLocalMalperf,
+           data = d, family = binomial(link = "logit"))
+  DescTools::Cstat(m3)-DescTools::Cstat(m1a)
+}
+
+set.seed(215)
+booted_c.model.1a.3 <- boot(df.model4, c_stat_boot.1a.3.wlp.f, R=1000)
+booted_c.model.1a.3 #0.1061384
+boot.ci(boot.out = booted_c.model.1a.3, type = c("norm")) #95%   (0.0470,  0.1713)
+```
+
+Bootstrap C-statistic Difference between WLP Model 1b and Model 3 using only patients from Penn Class B or B-C
+```{r Bootstrap C-stat Difference Model 1b - Model 3}
+c_stat_boot.1b.3.wlp.f <- function(data, i){
+  d <- data[i,]
+  m1b <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+               BAV + Previous_CVA + Previous_Cardiac_Surgery + Penn_Class,
+             data = d, family = binomial(link = "logit"))
+  m3 <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+              BAV + Previous_CVA + Previous_Cardiac_Surgery + 
+              Malperfusion_Coronary + Malperfusion_GI + Malperfusion_Renal + 
+              Malperfusion_IlioFem + Malperfusion_Cerebral + Malperfusion_Spinal +
+              Malperfusion_Upper_Extremity,
+            data = d, family = binomial(link = "logit"))
+  DescTools::Cstat(m1b)-DescTools::Cstat(m3)
+}
+
+set.seed(215)
+booted_c.model.1b.3 <- boot(df.model3, c_stat_boot.1b.3.wlp.f, R=1000)
+booted_c.model.1b.3
+boot.ci(boot.out = booted_c.model.1b.3, type = c("norm"))
+```
+
+Bootstrap C-statistic Difference between WLP Model 2 and Model 3 using only patients from Penn Class B or B-C
+```{r Bootstrap C-stat Difference Model 2 - Model 3}
+df.model4 <- df.model3 %>%
+  dplyr::mutate(num_malperf.cat = case_when(
+                num_Malperfusion_Beds ==0 ~ "0",
+                num_Malperfusion_Beds ==1 ~ "1",
+                num_Malperfusion_Beds ==2 ~ "2",
+                num_Malperfusion_Beds >= 3 ~ ">=3")
+  )   
+
+c_stat_boot.2.3.wlp.f <- function(data, i){
+  d <- data[i,]
+  m2 <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+              BAV + Previous_CVA + Previous_Cardiac_Surgery + num_malperf.cat,
+            data = d, family = binomial(link = "logit"))
+  m3 <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+              BAV + Previous_CVA + Previous_Cardiac_Surgery + 
+              Malperfusion_Coronary + Malperfusion_GI + Malperfusion_Renal + 
+              Malperfusion_IlioFem + Malperfusion_Cerebral + Malperfusion_Spinal +
+              Malperfusion_Upper_Extremity,
+            data = d, family = binomial(link = "logit"))
+  DescTools::Cstat(m2)-DescTools::Cstat(m3)
+}
+
+set.seed(215)
+booted_c.model.2.3 <- boot(df.model4, c_stat_boot.2.3.wlp.f, R=1000)
+booted_c.model.2.3 # -0.005543155
+boot.ci(boot.out = booted_c.model.2.3, type = c("norm")) #95%   (-0.0261,  0.0313)
+
+
+
+```
+
+Bootstrap C-statistic Difference between WLP Model 1b and Model 4
+```{r Bootstrap C-stat Difference Model 1b - Model 4}
+
+c_stat_boot.1b.4.wlp.f <- function(data, i){
+  d <- data[i,]
+  m4 <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+                     BAV + Previous_CVA + Previous_Cardiac_Surgery + complicated,
+                   data = d, family = binomial(link = "logit"))
+  m1b <- glm(dead_30 ~ age_80 + Sex + White + Diabetes + COPD + Renal_Failure +
+               BAV + Previous_CVA + Previous_Cardiac_Surgery + Penn_Class,
+             data = d, family = binomial(link = "logit"))
+  DescTools::Cstat(m1b)-DescTools::Cstat(m4)
+}
+
+set.seed(215)
+booted_c.model.1b.4 <- boot(df.model4, c_stat_boot.1b.4.wlp.f, R=1000)
+booted_c.model.1b.4
+boot.ci(boot.out = booted_c.model.1b.4, type = c("norm"))
+```
+
+Model Performance + ROC curves (Fig 5)
+```{r Fig5 ROC Curves}
+#library(ModelGood)
+#install.packages("ModelMetrics")
+#library(ModelMetrics)
+#install.packages('Rcpp')
+#library(Rcpp)
+install.packages("pROC")
+library(pROC)
+install.packages("Epi")
+library(Epi)
+install.packages("reportROC")
+library(reportROC)
+
+predicted1 <- predict(model.1a.wlp, type="response")
+baseline <- roc(df.model4$dead_30, predicted1)
+predicted2 <- predict(model.1b.wlp, type="response")
+WithPennClass <- roc(df.model4$dead_30, predicted2)
+predicted3 <- predict(model.2.wlp, type="response")
+WithBeds <- roc(df.model4$dead_30, predicted3)
+predicted4 <- predict(model.4.wlp, type="response")
+CompStatus <- roc(df.model4$dead_30, predicted4)
+predicted5 <- predict(model.3.wlp, type="response")
+BedSite <- roc(df.model4$dead_30, predicted5)
+
+reportROC(df.model4$dead_30, predicted1, plot=TRUE)
+reportROC(df.model4$dead_30, predicted2, plot=TRUE)
+reportROC(df.model4$dead_30, predicted3, plot=TRUE)
+reportROC(df.model4$dead_30, predicted4, plot=TRUE)
+reportROC(df.model4$dead_30, predicted5, plot=TRUE)
+
+Fig5 <- ggroc(list("Baseline (AUC = 0.61)" = baseline, "With Complication Status (AUC = 0.71)" = CompStatus, "With Number of Malperfused Beds (AUC = 0.74)" = WithBeds, "With Specific Vascular Bed (AUC = 0.74)" = BedSite, "With Penn Class (AUC = 0.77)" = WithPennClass)) + scale_fill_brewer(palette="Set1")+ggtitle("")+labs(color='Model')+theme(text=element_text(size=16))
+Fig5
+
+ggsave(
+  "Fig5_Final.pdf",
+  plot = Fig5,
+  device = NULL,
+  path = "~/Desktop/Sid R Project",
+  scale = 2.5,
+  width = 5,
+  height = 3,
+  dpi = 300,
+  limitsize = TRUE,
+)
+```
+
+(Fig 6) Survival Analysis
+```{r Survival Analysis by Penn Class}
+require("survival")
+require("survminer")
+
+#Convert from days to years
+df$status <- as.numeric(df$status)
+df<-df %>%
+  mutate(time_years = time/365.25)%>%
+  relocate(time_years,time)
+
+#Survival Analysis
+fit2 <- coxph(Surv(time_years, status) ~ strata(Penn_Class) + Age_at_Surgery + age_80 + White + Black + Race_other + Race_unreported + Previous_CVA + Previous_Cardiac_Surgery + Previous_AVR + Dialysis + Tear_below_STJ, data = df)
+
+summary(survfit(fit2), conf.int=0.95, times=seq(0,20,5))
+
+Fig6a <- ggsurvplot(survfit(fit2, data = df), size = 0.5, title = "A.",
+           surv.plot.height = 0.9, conf.int = TRUE,
+           risk.table = TRUE,       # Add risk table
+           risk.table.col = "strata",# Risk table color by groups
+           risk.table.title = "Number at risk",
+           legend.labs =
+             c("A", "B", "C", "B-C"), xlab = "Time (Years)",  xlim = c(0,15), break.x.by = 5,
+           risk.table.height = 0.35, palette = c("Set1"))
+Fig6a
+
+tiff("survplot.tiff", width = 6, height = 5, units = 'in', res = 300)
+print(Fig6a, newpage = FALSE) # Make plot
+dev.off()
+
+#Survival Analysis including only patients who were alive after 30-days post-op
+df6b <- df%>%
+  filter(time > 30)%>%
+  mutate(time6b = time-30)%>%
+  mutate(time_years6b = time6b/365.25)%>%
+  relocate(time_years6b,time6b)
+
+fit4 <- coxph(Surv(time_years, status) ~ strata(Penn_Class) + Age_at_Surgery + age_80 + White + Black + Race_other + Race_unreported + Previous_CVA + Previous_Cardiac_Surgery + Previous_AVR + Dialysis + Tear_below_STJ, data = df6b)
+
+summary(survfit(fit4), conf.int=0.95, times=seq(0,20,5))
+
+Fig6b <- ggsurvplot(survfit(fit4, data = df6b), size = 0.5, title = "B.",
+           surv.plot.height = 0.9,
+           risk.table = TRUE, conf.int = TRUE,      # Add risk table
+           risk.table.col = "strata",# Risk table color by groups
+           risk.table.title = "Number at risk",
+           legend.labs =
+             c("A", "B", "C", "B-C"), xlab = "Time (Years)",  xlim = c(0,15), break.x.by = 5,
+           risk.table.height = 0.35, palette = c("Set1"))
+Fig6b
+
+tiff("survplot.tiff", width = 6, height = 5, units = 'in', res = 300)
+Fib6b_plot <- print(Fig6b, newpage = FALSE) # Make plot
+dev.off()
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
